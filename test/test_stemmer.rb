@@ -112,11 +112,11 @@ class StemmerTest < MiniTest::Test
     end
   end
 
-  #def test_stemmer
-  #  input = File.read('test/input.txt')
-  #  expected = File.read('test/output.txt')
+  def test_stemmer
+    input = File.read('test/input.txt')
+    expected = File.read('test/output.txt')
 
-  #  assert_equal expected.split(/\W+/), input.stem, "Looks like some words were not stemmed as expected"
-  #end
+    assert_equal expected.split(/\W+/), input.stem_as_array, "Looks like some words were not stemmed as expected"
+  end
 
 end
