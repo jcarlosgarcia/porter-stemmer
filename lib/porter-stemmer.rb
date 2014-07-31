@@ -1,5 +1,5 @@
 module Porter
-  module Stemmer
+  class Stemmer
 
     STEP_2_SUFFIX_MAPPING = {
       'ational' => 'ate',
@@ -91,22 +91,7 @@ module Porter
     MGR1 = /^(#{CONSONANT_SEQUENCE})?#{VOWEL_SEQUENCE}#{CONSONANT_SEQUENCE}#{VOWEL_SEQUENCE}#{CONSONANT_SEQUENCE}/o # [cc]vvccvvcc... is m>1
     VOWEL_IN_STEM = /^(#{CONSONANT_SEQUENCE})?#{VOWEL}/o # vowel in stem
 
-    def stem_as_array
-      stemmed_words = []
-      words = self.split(/\W+/)
-      words.each_index do |index|
-        word = words[index]
-        stemmed_words << word.stem
-      end
-
-      return stemmed_words
-
-    end
-
-    def stem
-
-      word = self.dup
-
+    def stem(word)
       return word if word.length < 3
 
       # Map initial y to Y so that the patterns never treat it as vowel
@@ -122,110 +107,129 @@ module Porter
       word[0] = 'y' if word[0] == 'Y'
 
       return word
-
     end
 
-    # Gets rid of plurals and -ed or -ing. e.g.
-    def step1(word)
-      word = step1a(word)
-      word = step1b(word)
-      word = step1c(word)
-    end
+    private
 
-    def step1a(word)
-      if word =~ /(ss|i)es$/ || word =~ /([^s])s$/
-        word = $` + $1
+      # Gets rid of plurals and -ed or -ing. e.g.
+      def step1(word)
+        word = step1a(word)
+        word = step1b(word)
+        word = step1c(word)
       end
 
-      return word
+      def step1a(word)
+        if word =~ /(ss|i)es$/ || word =~ /([^s])s$/
+          word = $` + $1
+        end
 
-    end
+        return word
 
-    def step1b(word)
-      if word =~ /eed$/
-        word.chop! if $` =~ MGR0
-      elsif word =~ /(ed|ing)$/
-        stemmed_word = $`
-        if stemmed_word =~ VOWEL_IN_STEM
-          word = stemmed_word
-          case word
-            when /(at|bl|iz)$/, /^#{CONSONANT_SEQUENCE}#{VOWEL}[^aeiouwxy]$/o
-              word << "e"
-            when /([^aeiouylsz])\1$/
-              word.chop!
+      end
+
+      def step1b(word)
+        if word =~ /eed$/
+          word.chop! if $` =~ MGR0
+        elsif word =~ /(ed|ing)$/
+          stemmed_word = $`
+          if stemmed_word =~ VOWEL_IN_STEM
+            word = stemmed_word
+            case word
+              when /(at|bl|iz)$/, /^#{CONSONANT_SEQUENCE}#{VOWEL}[^aeiouwxy]$/o
+                word << "e"
+              when /([^aeiouylsz])\1$/
+                word.chop!
+            end
           end
         end
+
+        return word
+
       end
 
-      return word
-
-    end
-
-    # Turns terminal y to i when there is another vowel in the stem
-    def step1c(word)
-      if word =~ /y$/
-        stemmed_word = $`
-        word = stemmed_word + "i" if stemmed_word =~ VOWEL_IN_STEM
-      end
-
-      return word
-    end
-
-    # Maps double suffices to single ones, so -ization (-ize plus -ation) maps to -ize
-    def step2(word)
-      map_suffices word, STEP_2_SUFFIX_REGEXP, STEP_2_SUFFIX_MAPPING
-    end
-
-    # Deals with -ic-, -full, -ness, etc.
-    def step3(word)
-      map_suffices word, STEP_3_SUFFIX_REGEXP, STEP_3_SUFFIX_MAPPING
-    end
-
-    def map_suffices(word, regexp, suffix_mapping)
-      if word =~ regexp
-        stemmed_word = $`
-        suffix = $1
-        if stemmed_word =~ MGR0
-          word = stemmed_word + suffix_mapping[suffix]
+      # Turns terminal y to i when there is another vowel in the stem
+      def step1c(word)
+        if word =~ /y$/
+          stemmed_word = $`
+          word = stemmed_word + "i" if stemmed_word =~ VOWEL_IN_STEM
         end
+
+        return word
       end
 
-      return word
-    end
-
-    # Takes off -ant, -ence etc., in context <c>vcvc<v>
-    def step4(word)
-      if word =~ STEP_4_SUFFIX_REGEXP
-        stemmed_word = $`
-      elsif word =~ /(s|t)(ion)$/
-        stemmed_word = $` + $1
+      # Maps double suffices to single ones, so -ization (-ize plus -ation) maps to -ize
+      def step2(word)
+        map_suffices word, STEP_2_SUFFIX_REGEXP, STEP_2_SUFFIX_MAPPING
       end
 
-      word = stemmed_word if defined?(stemmed_word) && stemmed_word =~ MGR1
+      # Deals with -ic-, -full, -ness, etc.
+      def step3(word)
+        map_suffices word, STEP_3_SUFFIX_REGEXP, STEP_3_SUFFIX_MAPPING
+      end
 
-      return word
-    end
-
-    # Removes a final -e if the number of consonant sequences is greater than 1
-    def step5(word)
-      if word =~ /e$/
-        stemmed_word = $`
-        if (stemmed_word =~ MGR1) ||
-            (stemmed_word =~ MEQ1 && stemmed_word !~ /^#{CONSONANT_SEQUENCE}#{VOWEL}[^aeiouwxy]$/o)
-          word = stemmed_word
+      def map_suffices(word, regexp, suffix_mapping)
+        if word =~ regexp
+          stemmed_word = $`
+          suffix = $1
+          if stemmed_word =~ MGR0
+            word = stemmed_word + suffix_mapping[suffix]
+          end
         end
+
+        return word
       end
 
-      if word =~ /ll$/ && word =~ MGR1
-        word.chop!
+      # Takes off -ant, -ence etc., in context <c>vcvc<v>
+      def step4(word)
+        if word =~ STEP_4_SUFFIX_REGEXP
+          stemmed_word = $`
+        elsif word =~ /(s|t)(ion)$/
+          stemmed_word = $` + $1
+        end
+
+        word = stemmed_word if defined?(stemmed_word) && stemmed_word =~ MGR1
+
+        return word
       end
 
-      return word
+      # Removes a final -e if the number of consonant sequences is greater than 1
+      def step5(word)
+        if word =~ /e$/
+          stemmed_word = $`
+          if (stemmed_word =~ MGR1) ||
+              (stemmed_word =~ MEQ1 && stemmed_word !~ /^#{CONSONANT_SEQUENCE}#{VOWEL}[^aeiouwxy]$/o)
+            word = stemmed_word
+          end
+        end
 
-    end
+        if word =~ /ll$/ && word =~ MGR1
+          word.chop!
+        end
+
+        return word
+      end
+
   end
+
+  def stem_as_array
+    stemmer = Stemmer.new
+    stemmed_words = []
+    words = self.split(/\W+/)
+
+    words.each_index do |index|
+      word = words[index]
+      stemmed_words << stemmer.stem(word)
+    end
+
+    return stemmed_words
+  end
+
+  def stem
+    Stemmer.new.stem self.dup
+  end
+
 end
 
 class String
-  include Porter::Stemmer
+  include Porter
 end
